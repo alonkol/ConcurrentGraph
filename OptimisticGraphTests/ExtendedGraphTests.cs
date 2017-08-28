@@ -14,9 +14,8 @@ namespace OptimisticGraphTests
 
         private void Init()
         {
-            graphs = new IExtendedGraph[3];
+            graphs = new IExtendedGraph[2];
             graphs[0] = new ExtendedCoarseGrainLockGraph();
-            graphs[1] = new NaiveExtendedGraph();
             graphs[2] = new ExtendedGraph();
         }
 

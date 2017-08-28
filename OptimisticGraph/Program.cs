@@ -67,7 +67,6 @@ namespace OptimisticGraph
                 new CoarseGrainLockGraph(), 
                 new Graph(),
                 new ExtendedCoarseGrainLockGraph(),
-                new NaiveExtendedGraph(),
                 new ExtendedGraph(),
             };
 
