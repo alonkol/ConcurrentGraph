@@ -13,6 +13,10 @@ namespace OptimisticGraph
 
         private readonly Vertex _verticesHead;
 
+        private readonly object _BFSLock = new object();
+        private int version = 0;
+        private bool cleanup = true;
+
         public VertexPair LocateVertex(int key)
         {
             while (true)
@@ -39,7 +43,7 @@ namespace OptimisticGraph
             if (v2.key != key || v2.marked) // if does not exist, or marked
             {
                 Vertex v3 = new Vertex(key, version);
-                v3.next = v2.marked ? v2.next : v2; // physically delete if marked
+                v3.next = v2; // same key might appear twice, but marked nodes are always last
                 v1.next = v3;
             }
             Unlock(v1, v2);
@@ -268,6 +272,10 @@ namespace OptimisticGraph
                 Monitor.Enter(n2);
             }
         }
+
+        // This function will always return the correct insertion point,
+        // Even if duplicated marked keys are included in the graph,
+        // Because the non-marked key will always be first.
         protected Vertex GetVertexParentOrInsertionPoint(int key)
         {
             Vertex v1 = _verticesHead;
@@ -300,60 +308,61 @@ namespace OptimisticGraph
             return cnt;
         }
 
-        private int version = 0;
-        private bool cleanup = true;
-
         public Dictionary<int, int> BFS(int source)
         {
-            int ver = version;
-            version++;
-            cleanup = false;
-
-            Queue<Vertex> q = new Queue<Vertex>();
-            Dictionary<int, int> d = new Dictionary<int, int>
+            lock (_BFSLock)
             {
-                {source, 0}
-            };
+                int ver = version;
+                version++;
+                cleanup = false;
 
-            Vertex startVertex = this.GetVertex(source);
-            if (startVertex == null || startVertex.version > ver) // vertex null or new
-            {
-                return null;
-            }
-
-            q.Enqueue(startVertex);
-
-            while (q.Count > 0)
-            {
-                Vertex v = q.Dequeue();
-                if (v == null || v.version > ver)
+                Queue<Vertex> q = new Queue<Vertex>();
+                Dictionary<int, int> d = new Dictionary<int, int>
                 {
-                    continue;
+                    {source, 0}
+                };
+
+                Vertex startVertex = this.GetVertex(source);
+                if (startVertex == null || startVertex.version > ver) // vertex null or new
+                {
+                    return null;
                 }
 
-                Edge e = v.outgoingHead.next;
+                q.Enqueue(startVertex);
 
-                while (e.next != null)
+                while (q.Count > 0)
                 {
-                    if (e.version > ver || d.ContainsKey(e.key))
+                    Vertex v = q.Dequeue();
+                    if (v == null || v.version > ver)
                     {
-                        e = e.next;
                         continue;
                     }
 
-                    d.Add(e.key, d[v.key] + 1);
-                    Vertex neighbor = GetVertex(e.key);
-                    q.Enqueue(neighbor);
-                    e = e.next;
+                    Edge e = v.outgoingHead.next;
+
+                    while (e.next != null)
+                    {
+                        if (e.version > ver || d.ContainsKey(e.key))
+                        {
+                            e = e.next;
+                            continue;
+                        }
+
+                        d.Add(e.key, d[v.key] + 1);
+                        Vertex neighbor = GetVertex(e.key);
+                        q.Enqueue(neighbor);
+                        e = e.next;
+                    }
                 }
+
+                cleanup = true;
+                CleanGraph();
+
+                return d;
             }
-
-            cleanup = true;
-            CleanGraph();
-
-            return d;
         }
 
+        // this function physically removes all marked edges and vertices.
         private void CleanGraph()
         {
             Vertex v1 = _verticesHead;
@@ -364,32 +373,35 @@ namespace OptimisticGraph
                 if (v2.marked)
                 {
                     lock (v1)
-                    {
-                        if (ValidateVertex(v1, v2))
+                        lock (v2)
                         {
-                            v1.next = v2.next; // physically remove
-                        }
-                    }
-                }
-
-                Edge e1 = v2.outgoingHead;
-                Edge e2 = e1.next;
-
-                while (e2 != null)
-                {
-                    if (e2.marked)
-                    {
-                        lock (e1)
-                        {
-                            if (ValidateEdge(e1,e2))
+                            if (ValidateVertex(v1, v2))
                             {
-                                e1.next = e2.next; // physically remove
+                                v1.next = v2.next; // physically remove
                             }
                         }
-                    }
+                }
+                else
+                {
+                    Edge e1 = v2.outgoingHead;
+                    Edge e2 = e1.next;
 
-                    e1 = e2;
-                    e2 = e2.next;
+                    while (e2 != null)
+                    {
+                        if (e2.marked)
+                        {
+                            lock (e1) lock (e2)
+                                {
+                                    if (ValidateEdge(e1, e2))
+                                    {
+                                        e1.next = e2.next; // physically remove
+                                    }
+                                }
+                        }
+
+                        e1 = e2;
+                        e2 = e2.next;
+                    }
                 }
 
                 v1 = v2;

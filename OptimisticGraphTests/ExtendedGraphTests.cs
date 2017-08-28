@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OptimisticGraph;
@@ -11,18 +12,18 @@ namespace OptimisticGraphTests
         private IExtendedGraph[] graphs;
         private IExtendedGraph graph;
 
-        private void init()
+        private void Init()
         {
+            graphs = new IExtendedGraph[3];
             graphs[0] = new ExtendedCoarseGrainLockGraph();
             graphs[1] = new NaiveExtendedGraph();
             graphs[2] = new ExtendedGraph();
         }
 
-
         [TestMethod]
         public void BFSTest()
         {
-            init();
+            Init();
 
             foreach (IExtendedGraph graph in graphs)
             {
@@ -55,9 +56,9 @@ namespace OptimisticGraphTests
         }
 
         [TestMethod]
-        public void Test1()
+        public void AddRemoveCountTest()
         {
-            init();
+            Init();
 
             foreach (var currGraph in graphs)
             {
@@ -66,7 +67,7 @@ namespace OptimisticGraphTests
 
                 for (int i = 0; i < 3; i++)
                 {
-                    threads[i] = new Thread(Test1Thread);
+                    threads[i] = new Thread(AddRemoveCountTestThread);
                     threads[i].Start();
                 }
 
@@ -79,13 +80,14 @@ namespace OptimisticGraphTests
             }
         }
 
-        private void Test1Thread()
+        private void AddRemoveCountTestThread()
         {
-            addVertices(1000);
-            removeVertices(1000);
+            AddVertices(1000);
+            AddEdges(1000);
+            RemoveVertices(1000);
         }
 
-        private void addVertices(int ops)
+        private void AddVertices(int ops)
         {
             for (int i = 0; i < ops; i++)
             {
@@ -93,11 +95,23 @@ namespace OptimisticGraphTests
             }
         }
 
-        private void removeVertices(int ops)
+        private void RemoveVertices(int ops)
         {
             for (int i = 0; i < ops; i++)
             {
                 graph.RemoveVertex(Thread.CurrentContext.ContextID * ops + i);
+            }
+        }
+
+
+        private void AddEdges(int ops)
+        {
+            Random rand = new Random();
+            int k = Thread.CurrentContext.ContextID*ops;
+            for (int i = 0; i < ops; i++)
+            {
+                int j = rand.Next(ops);
+                graph.AddEdge(k + i, k + j);
             }
         }
     }

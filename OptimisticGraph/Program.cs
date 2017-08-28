@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 
 namespace OptimisticGraph
@@ -18,27 +19,45 @@ namespace OptimisticGraph
 
     class Program
     {
-        private const int operationsPerThread = 100000;
+        private static int operationsPerThread = 10000;
+        
+        private static int numOfThreads = 4;
 
-        private const int numOfThreads = 10;
-
-        private const int totalOps = operationsPerThread*numOfThreads;
+        private static int totalOps;
 
         private static readonly Dictionary<GraphOperation, double> opDistribution = new Dictionary<GraphOperation, double>
         {
-            {GraphOperation.AddVertex, 0.249},
-            {GraphOperation.AddEdge, 0.15},
-            {GraphOperation.RemoveVertex, 0.20},
-            {GraphOperation.RemoveEdge, 0.15},
-            {GraphOperation.ContainsVertex, 0.15},
-            {GraphOperation.ContainsEdge, 0.1},
-            {GraphOperation.BFS, 0.001},
+            {GraphOperation.AddVertex, 0.2},
+            {GraphOperation.AddEdge, 0.2},
+            {GraphOperation.RemoveVertex, 0.2},
+            {GraphOperation.RemoveEdge, 0.2},
+            {GraphOperation.ContainsVertex, 0.05},
+            {GraphOperation.ContainsEdge, 0.05},
+            {GraphOperation.BFS, 0.1},
         };
 
         public static IGraph graph;
 
-        public static void Main()
+        private static StreamWriter log;
+
+        public static void Main(string[] argStrings)
         {
+            if (argStrings.Length > 2)
+            {
+                Console.WriteLine("Usage: ExtendedGraph.exe [numOfThreads [operationsPerThread]]");
+                return;
+            }
+            if (argStrings.Length > 0)
+            {
+                numOfThreads = int.Parse(argStrings[0]);
+            }
+            if (argStrings.Length == 2)
+            {
+                operationsPerThread = int.Parse(argStrings[1]);
+            }
+
+            totalOps = operationsPerThread * numOfThreads;
+
             List<Thread> workerThreads;
             int i, j;
             Stopwatch watch;
@@ -52,40 +71,53 @@ namespace OptimisticGraph
                 new ExtendedGraph(),
             };
 
-            Console.WriteLine($"Starting {opDistribution.Count} types of operations on {graphs.Length} types of graphs.");
-            Console.WriteLine($"{numOfThreads} threads will perform {totalOps/1000}K operations.");
-
-            for (j = 0; j < graphs.Length; j++)
+            try
             {
-                graph = graphs[j];
-
-                workerThreads = new List<Thread>();
-                watch = Stopwatch.StartNew();
-
-                for (i = 0; i < numOfThreads; i++)
+                using (log = File.AppendText($"log_{DateTime.UtcNow:yyyyMMdd-HHmmss}.txt"))
                 {
-                    Thread thread = new Thread(ThreadWorker);
-                    workerThreads.Add(thread);
-                    thread.Start();
+                    Log("####################################################################");
+                    Log($"Starting, {DateTime.UtcNow}");
+                    Log($"Performing {opDistribution.Count} types of operations on {graphs.Length} types of graphs.");
+                    Log($"{numOfThreads} threads will perform {totalOps/1000}K operations.");
+                    Log("####################################################################");
+
+                    for (j = 0; j < graphs.Length; j++)
+                    {
+                        graph = graphs[j];
+                        Console.WriteLine(graph.GetType());
+
+                        workerThreads = new List<Thread>();
+                        watch = Stopwatch.StartNew();
+
+                        for (i = 0; i < numOfThreads; i++)
+                        {
+                            Thread thread = new Thread(ThreadWorker);
+                            workerThreads.Add(thread);
+                            thread.Start();
+                        }
+
+                        foreach (Thread thread in workerThreads)
+                        {
+                            thread.Join();
+                        }
+
+                        watch.Stop();
+
+                        int throughput = (int) (totalOps/(watch.Elapsed.Milliseconds/1000.0))/1000;
+
+                        Log($"----{graph.GetType()}----");
+                        Log($"Throughput: {throughput} KOps/sec");
+                        Log($"Graph contains {graph.GetVertexCount()} vertices.");
+                    }
+
+                    PrintCoreInfo();
                 }
-
-                foreach (Thread thread in workerThreads)
-                {
-                    thread.Join();
-                }
-
-                watch.Stop();
-
-                int throughput = (int) (totalOps/(watch.Elapsed.Milliseconds/1000.0))/1000;
-
-                Console.WriteLine(graph.GetType());
-                Console.WriteLine($"Throughput: {throughput} KOps/sec");
-                Console.WriteLine($"Graph contains {graph.GetVertexCount()} vertices.");
             }
-
-            PrintCoreInfo();
-
-            Thread.Sleep(500000);
+            catch (Exception e)
+            {
+                Console.WriteLine($"Failed: {e}");
+            }
+            
         }
 
         public static void ThreadWorker()
@@ -158,7 +190,7 @@ namespace OptimisticGraph
 
         private static void PrintCoreInfo()
         {
-            Console.WriteLine("Extracting Processors Core Information:");
+            Log("Extracting processors information:");
             try
             {
                 // Physical Processors:
@@ -166,7 +198,7 @@ namespace OptimisticGraph
                     var item in
                     new System.Management.ManagementObjectSearcher("Select * from Win32_ComputerSystem").Get())
                 {
-                    Console.WriteLine("Number Of Physical Processors: {0} ", item["NumberOfProcessors"]);
+                    Log($"Number of physical processors: {item["NumberOfProcessors"]}");
                 }
 
                 // Cores:
@@ -176,16 +208,29 @@ namespace OptimisticGraph
                 {
                     coreCount += int.Parse(item["NumberOfCores"].ToString());
                 }
-                Console.WriteLine("Number Of Cores: {0}", coreCount);
+                Log($"Number of cores: {coreCount}");
             }
             catch (Exception e)
             {
-                Console.WriteLine("Failed to retreive Physical Processors and Core count from WMI, {0}", e);
+                Log($"Failed to retreive data from WMI, {e}");
             }
             
-
             // Logical Processors:
-            Console.WriteLine("Number Of Logical Processors: {0}", Environment.ProcessorCount);
+            Log($"Number of logical processors: {Environment.ProcessorCount}");
+        }
+
+        private static void Log(object o)
+        {
+            if (log == null) return;
+
+            try
+            {
+                log.WriteLine(o);
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
         }
     }
 }

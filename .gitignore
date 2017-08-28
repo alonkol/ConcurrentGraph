@@ -1,0 +1,14 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/OptimisticGraph/v14
+/OptimisticGraph/bin/Debug
+/OptimisticGraph/obj/Debug
+/OptimisticGraphTests/Properties
+/OptimisticGraphTests/obj/Debug
+/OptimisticGraphTests/bin/Debug
+/OptimisticGraph/CoarseGrainLockGraph_old.cs
+/OptimisticGraph/App.config
+/OptimisticGraph/Properties
+/OptimisticGraph/OptimisticGraph.csproj.user
