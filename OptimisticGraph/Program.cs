@@ -181,12 +181,6 @@ namespace OptimisticGraph
             return (GraphOperation) rand.Next(opDistribution.Count);
         }
 
-        private static void ThreadPrint(string msg)
-        {
-            // int id = Thread.CurrentThread.ManagedThreadId;
-            // Console.WriteLine($"{id}: {msg}");
-        }
-
         private static void PrintCoreInfo()
         {
             Log("Extracting processors information:");
