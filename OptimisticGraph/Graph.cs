@@ -22,6 +22,7 @@ namespace OptimisticGraph
         public Vertex next;
         public Edge outgoingHead;
         public int version;
+        public int markedVersion;
     }
 
     public class VertexPair
@@ -53,6 +54,7 @@ namespace OptimisticGraph
         public bool marked;
         public Edge next;
         public int version;
+        public int markedVersion;
     }
 
     class EdgePair

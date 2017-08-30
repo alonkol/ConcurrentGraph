@@ -11,7 +11,7 @@ namespace OptimisticGraph
             _verticesHead.next = new Vertex(int.MaxValue);
         }
 
-        private readonly Vertex _verticesHead;
+        protected readonly Vertex _verticesHead;
 
         private readonly object _BFSLock = new object();
         private int version = 0;
@@ -56,10 +56,11 @@ namespace OptimisticGraph
             Vertex v2 = pair.V2;
             if (v2.key == key)
             {
-                v2.marked = true; // logically remove
+                v2.marked = true; // remove logically
+                v2.markedVersion = version;
                 if (cleanup)
                 {
-                    v1.next = v2.next; // physically remove
+                    v1.next = v2.next; // remove physically 
                 }
 
                 Unlock(v1, v2);
@@ -104,11 +105,12 @@ namespace OptimisticGraph
                     {
                         if (ValidateEdge(e1, e2))
                         {
-                            e2.marked = true; // logically remove
+                            e2.marked = true; // remove logically 
+                            e2.markedVersion = version;
 
                             if (cleanup)
                             {
-                                e1.next = e2.next; // physically remove
+                                e1.next = e2.next; // remove physically 
                             }
 
                             return;
@@ -150,7 +152,12 @@ namespace OptimisticGraph
             if (pair.E2.key == v)
             {
                 e2.marked = true; // remove logically
-                e1.next = e2.next;  // remove physically
+                e2.markedVersion = version;
+
+                if (cleanup)
+                {
+                    e1.next = e2.next;  // remove physically
+                }
             }
 
             Unlock(e1, e2);
@@ -245,12 +252,12 @@ namespace OptimisticGraph
             return smallerKey == u ? new VertexPair(v1, v2) : new VertexPair(v2, v1);
         }
 
-        private bool ValidateVertex(Vertex v1, Vertex v2) // marked are now considered valid
+        protected bool ValidateVertex(Vertex v1, Vertex v2) // marked are now considered valid
         {
             return v1.next == v2;
         }
 
-        private bool ValidateEdge(Edge e1, Edge e2) // marked are now considered valid
+        protected bool ValidateEdge(Edge e1, Edge e2) // marked are now considered valid
         {
             return e1.next == e2;
         }
@@ -312,65 +319,48 @@ namespace OptimisticGraph
         {
             lock (_BFSLock)
             {
-                int ver = version;
-                version++;
                 cleanup = false;
+                version++;
+                int ver = version;
 
-                Queue<Vertex> q = new Queue<Vertex>();
-                Dictionary<int, int> d = new Dictionary<int, int>
-                {
-                    {source, 0}
-                };
-
-                Vertex startVertex = this.GetVertex(source);
-                if (startVertex == null || startVertex.version > ver) // vertex null or new
-                {
-                    return null;
-                }
-
-                q.Enqueue(startVertex);
-
-                while (q.Count > 0)
-                {
-                    Vertex v = q.Dequeue();
-                    if (v == null || v.version > ver)
-                    {
-                        continue;
-                    }
-
-                    Edge e = v.outgoingHead.next;
-
-                    while (e.next != null)
-                    {
-                        if (e.version > ver || d.ContainsKey(e.key))
-                        {
-                            e = e.next;
-                            continue;
-                        }
-
-                        d.Add(e.key, d[v.key] + 1);
-                        Vertex neighbor = GetVertex(e.key);
-                        q.Enqueue(neighbor);
-                        e = e.next;
-                    }
-                }
+                Dictionary<int, int> d = BFS_algorithm(source, ver);
 
                 cleanup = true;
-                CleanGraph();
+                CleanGraph(null);
 
                 return d;
             }
         }
 
+        private int bfsCnt = 0;
+
+        public Dictionary<int, int> BFSConcurrent(int source)
+        {
+            Interlocked.Increment(ref bfsCnt);
+            int ver = Interlocked.Increment(ref version);
+            cleanup = false;
+
+            Dictionary<int, int> d = BFS_algorithm(source, ver);
+
+            if (Interlocked.Decrement(ref bfsCnt) == 0)
+            {
+                cleanup = true;
+            }
+
+            CleanGraph(ver);
+
+            return d;
+        }
+
         // this function physically removes all marked edges and vertices.
-        private void CleanGraph()
+        private void CleanGraph(int? ver)
         {
             Vertex v1 = _verticesHead;
             Vertex v2 = v1.next;
 
             while (v2 != null)
             {
-                if (v2.marked)
+                if (v2.marked && (ver == null || v2.markedVersion == ver))
                 {
                     lock (v1)
                         lock (v2)
@@ -388,7 +378,7 @@ namespace OptimisticGraph
 
                     while (e2 != null)
                     {
-                        if (e2.marked)
+                        if (e2.marked && (ver == null || e2.markedVersion == ver))
                         {
                             lock (e1) lock (e2)
                                 {
@@ -409,6 +399,48 @@ namespace OptimisticGraph
             }
         }
 
-    }
+        private Dictionary<int, int> BFS_algorithm(int source, int ver)
+        {
+            Queue<Vertex> q = new Queue<Vertex>();
+            Dictionary<int, int> d = new Dictionary<int, int>
+            {
+                {source, 0}
+            };
 
+            Vertex startVertex = this.GetVertex(source);
+            if (startVertex == null || startVertex.version >= ver || (startVertex.marked && startVertex.markedVersion < ver)) // vertex null, new or marked
+            {
+                return null;
+            }
+
+            q.Enqueue(startVertex);
+
+            while (q.Count > 0)
+            {
+                Vertex v = q.Dequeue();
+                if (v == null || v.version >= ver || (v.marked && v.markedVersion < ver))
+                {
+                    continue;
+                }
+
+                Edge e = v.outgoingHead.next;
+
+                while (e.next != null)
+                {
+                    if (e.version > ver || d.ContainsKey(e.key) || (v.marked && v.markedVersion < ver))
+                    {
+                        e = e.next;
+                        continue;
+                    }
+
+                    d.Add(e.key, d[v.key] + 1);
+                    Vertex neighbor = GetVertex(e.key);
+                    q.Enqueue(neighbor);
+                    e = e.next;
+                }
+            }
+
+            return d;
+        }
+    }
 }

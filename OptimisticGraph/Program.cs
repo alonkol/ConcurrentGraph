@@ -19,7 +19,7 @@ namespace OptimisticGraph
 
     class Program
     {
-        private static int operationsPerThread = 10000;
+        private static int operationsPerThread = 40000;
         
         private static int numOfThreads = 4;
 
@@ -27,13 +27,13 @@ namespace OptimisticGraph
 
         private static readonly Dictionary<GraphOperation, double> opDistribution = new Dictionary<GraphOperation, double>
         {
-            {GraphOperation.AddVertex, 0.2},
-            {GraphOperation.AddEdge, 0.2},
+            {GraphOperation.AddVertex, 0.249},
+            {GraphOperation.AddEdge, 0.25},
             {GraphOperation.RemoveVertex, 0.2},
             {GraphOperation.RemoveEdge, 0.2},
             {GraphOperation.ContainsVertex, 0.05},
             {GraphOperation.ContainsEdge, 0.05},
-            {GraphOperation.BFS, 0.1},
+            {GraphOperation.BFS, 0.01},
         };
 
         public static IGraph graph;
@@ -72,12 +72,13 @@ namespace OptimisticGraph
 
             try
             {
-                using (log = File.AppendText($"log_{DateTime.UtcNow:yyyyMMdd-HHmmss}.txt"))
+                using (log = File.AppendText(string.Format("log_{0:yyyyMMdd-HHmmss}.txt", DateTime.UtcNow)))
                 {
                     Log("####################################################################");
-                    Log($"Starting, {DateTime.UtcNow}");
-                    Log($"Performing {opDistribution.Count} types of operations on {graphs.Length} types of graphs.");
-                    Log($"{numOfThreads} threads will perform {totalOps/1000}K operations.");
+                    Log(string.Format("Starting, {0}", DateTime.UtcNow));
+                    Log(string.Format("Performing {0} types of operations on {1} types of graphs.", opDistribution.Count, graphs.Length));
+                    Log(string.Format("{0} threads will perform {1}K operations.", numOfThreads, totalOps / 1000));
+                    Log(string.Format("BFS Ratio: {0}", opDistribution[GraphOperation.BFS]));
                     Log("####################################################################");
 
                     for (j = 0; j < graphs.Length; j++)
@@ -102,11 +103,11 @@ namespace OptimisticGraph
 
                         watch.Stop();
 
-                        int throughput = (int) (totalOps/(watch.Elapsed.Milliseconds/1000.0))/1000;
+                        int throughput = (int) (totalOps/(watch.Elapsed.TotalMilliseconds/1000.0))/1000;
 
-                        Log($"----{graph.GetType()}----");
-                        Log($"Throughput: {throughput} KOps/sec");
-                        Log($"Graph contains {graph.GetVertexCount()} vertices.");
+                        Log(string.Format("----{0}----", graph.GetType()));
+                        Log(string.Format("Throughput: {0} KOps/sec", throughput));
+                        Log(string.Format("Graph contains {0} vertices.", graph.GetVertexCount()));
                     }
 
                     PrintCoreInfo();
@@ -114,7 +115,8 @@ namespace OptimisticGraph
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Failed: {e}");
+                Console.WriteLine("Failed: {0}", e);
+                Thread.Sleep(TimeSpan.FromMinutes(1));
             }
             
         }
@@ -157,7 +159,11 @@ namespace OptimisticGraph
                         break;
                     case GraphOperation.BFS:
                         IExtendedGraph extendedGraph = graph as IExtendedGraph;
-                        extendedGraph?.BFS(u);
+                        if (extendedGraph != null)
+                        {
+                            extendedGraph.BFS(u);
+                        }
+                        
                         break;
                 }
 
@@ -191,7 +197,7 @@ namespace OptimisticGraph
                     var item in
                     new System.Management.ManagementObjectSearcher("Select * from Win32_ComputerSystem").Get())
                 {
-                    Log($"Number of physical processors: {item["NumberOfProcessors"]}");
+                    Log(string.Format("Number of physical processors: {0}", item["NumberOfProcessors"]));
                 }
 
                 // Cores:
@@ -201,15 +207,15 @@ namespace OptimisticGraph
                 {
                     coreCount += int.Parse(item["NumberOfCores"].ToString());
                 }
-                Log($"Number of cores: {coreCount}");
+                Log(string.Format("Number of cores: {0}", coreCount));
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                Log($"Failed to retreive data from WMI, {e}");
+                // ignored
             }
-            
+
             // Logical Processors:
-            Log($"Number of logical processors: {Environment.ProcessorCount}");
+            Log(string.Format("Number of logical processors: {0}", Environment.ProcessorCount));
         }
 
         private static void Log(object o)
