@@ -1,0 +1,22 @@
+####################################################################
+Starting, 9/1/2017 2:51:10 PM
+Performing 7 types of operations on 4 types of graphs.
+4 threads will perform 40K operations.
+BFS Ratio: 0.05
+####################################################################
+----OptimisticGraph.CoarseGrainLockGraph----
+Throughput: 251 KOps/sec
+Graph contains 1385 vertices.
+----OptimisticGraph.Graph----
+Throughput: 926 KOps/sec
+Graph contains 1318 vertices.
+----OptimisticGraph.ExtendedCoarseGrainLockGraph----
+Throughput: 170 KOps/sec
+Graph contains 1447 vertices.
+----OptimisticGraph.ExtendedGraph----
+Throughput: 595 KOps/sec
+Graph contains 1316 vertices.
+Extracting processors information:
+Number of physical processors: 2
+Number of cores: 16
+Number of logical processors: 16

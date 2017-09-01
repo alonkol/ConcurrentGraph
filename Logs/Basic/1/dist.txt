@@ -1,0 +1,7 @@
+            {GraphOperation.AddVertex, 0.249},
+            {GraphOperation.AddEdge, 0.15},
+            {GraphOperation.RemoveVertex, 0.20},
+            {GraphOperation.RemoveEdge, 0.15},
+            {GraphOperation.ContainsVertex, 0.15},
+            {GraphOperation.ContainsEdge, 0.1},
+            {GraphOperation.BFS, 0.001},
