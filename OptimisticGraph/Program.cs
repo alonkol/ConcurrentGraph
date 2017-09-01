@@ -19,7 +19,7 @@ namespace OptimisticGraph
 
     class Program
     {
-        private static int operationsPerThread = 40000;
+        private static int operationsPerThread = 10000;
         
         private static int numOfThreads = 4;
 
@@ -29,11 +29,11 @@ namespace OptimisticGraph
         {
             {GraphOperation.AddVertex, 0.249},
             {GraphOperation.AddEdge, 0.25},
-            {GraphOperation.RemoveVertex, 0.2},
-            {GraphOperation.RemoveEdge, 0.2},
-            {GraphOperation.ContainsVertex, 0.05},
-            {GraphOperation.ContainsEdge, 0.05},
-            {GraphOperation.BFS, 0.01},
+            {GraphOperation.RemoveVertex, 0.15},
+            {GraphOperation.RemoveEdge, 0.15},
+            {GraphOperation.ContainsVertex, 0.1},
+            {GraphOperation.ContainsEdge, 0.1},
+            {GraphOperation.BFS, 0.001},
         };
 
         public static IGraph graph;

@@ -14,8 +14,8 @@ namespace OptimisticGraph
         protected readonly Vertex _verticesHead;
 
         private readonly object _BFSLock = new object();
-        private int version = 0;
-        private bool cleanup = true;
+        protected int version = 0;
+        protected bool cleanup = true;
 
         public VertexPair LocateVertex(int key)
         {
@@ -332,28 +332,8 @@ namespace OptimisticGraph
             }
         }
 
-        private int bfsCnt = 0;
-
-        public Dictionary<int, int> BFSConcurrent(int source)
-        {
-            Interlocked.Increment(ref bfsCnt);
-            int ver = Interlocked.Increment(ref version);
-            cleanup = false;
-
-            Dictionary<int, int> d = BFS_algorithm(source, ver);
-
-            if (Interlocked.Decrement(ref bfsCnt) == 0)
-            {
-                cleanup = true;
-            }
-
-            CleanGraph(ver);
-
-            return d;
-        }
-
         // this function physically removes all marked edges and vertices.
-        private void CleanGraph(int? ver)
+        protected void CleanGraph(int? ver)
         {
             Vertex v1 = _verticesHead;
             Vertex v2 = v1.next;
@@ -399,7 +379,7 @@ namespace OptimisticGraph
             }
         }
 
-        private Dictionary<int, int> BFS_algorithm(int source, int ver)
+        protected Dictionary<int, int> BFS_algorithm(int source, int ver)
         {
             Queue<Vertex> q = new Queue<Vertex>();
             Dictionary<int, int> d = new Dictionary<int, int>

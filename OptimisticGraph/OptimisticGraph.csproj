@@ -62,6 +62,7 @@
   <ItemGroup>
     <Compile Include="ExtendedCoarseGrainLockGraph.cs" />
     <Compile Include="CoarseGrainLockGraph.cs" />
+    <Compile Include="ExtendedGraphV2.cs" />
     <Compile Include="ExtendedGraph.cs" />
     <Compile Include="IExtendedGraph.cs" />
     <Compile Include="Graph.cs" />
